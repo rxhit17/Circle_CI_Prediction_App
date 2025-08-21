@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Circle CI Prediction App</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h2>Circle CI Prediction App</h2>
+        <form method="POST">
+            <label for="SepalLengthCm">Sepal Length (cm)</label>
+            <input type="number" step="any" name="SepalLengthCm" required>
+
+            <label for="SepalWidthCm">Sepal Width (cm)</label>
+            <input type="number" step="any" name="SepalWidthCm" required>
+
+            <label for="PetalLengthCm">Petal Length (cm)</label>
+            <input type="number" step="any" name="PetalLengthCm" required>
+
+            <label for="PetalWidthCm">Petal Width (cm)</label>
+            <input type="number" step="any" name="PetalWidthCm" required>
+
+            <button type="submit">Predict</button>
+        </form>
+
+        {% if predication is not none %}
+            <h3 class="result">🌸 Prediction : <span>{{ predication }}</span></h3>
+        {% endif %}
+    </div>
+</body>
+</html>

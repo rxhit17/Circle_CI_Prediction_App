@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: MLOPS-PROJECT-5
+Version: 0.1
+Author: Sudhanshu
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: flask
+Requires-Dist: joblib
+Requires-Dist: matplotlib
+Requires-Dist: seaborn
+Requires-Dist: scikit-learn
+Dynamic: author
+Dynamic: requires-dist
