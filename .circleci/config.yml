@@ -2,8 +2,7 @@ version: 2.1
 
 jobs:
   build-and-push:
-    machine:
-      image: ubuntu-2004:202101-01   # Full VM with Docker support
+    machine: true   # Use the default Linux VM with Docker installed
     steps:
       - checkout
 
