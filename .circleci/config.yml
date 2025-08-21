@@ -3,10 +3,8 @@ version: 2.1
 executors:
   docker-executor:
     docker:
-      - image: google/cloud-sdk:latest
+      - image: cimg/base:stable   # Use CircleCI's maintained base image (lighter & supports remote_docker)
     working_directory: ~/repo
-    environment:
-      CLOUDSDK_CORE_DISABLE_PROMPTS: 1
 
 jobs:
   checkout_code:
@@ -19,13 +17,14 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker:
-          version: 20.10.7
+          version: 20.10.14   # ✅ explicitly use a supported Docker version
       - run:
           name: Authenticate with Google Cloud
           command: |
             echo "$GCLOUD_SERVICE_KEY" | base64 --decode > gcp-key.json
             gcloud auth activate-service-account --key-file=gcp-key.json
-            gcloud --quiet auth configure-docker us-central1-docker.pkg.dev
+            gcloud auth configure-docker us-central1-docker.pkg.dev
+
       - run:
           name: Build and Push Image
           command: |
@@ -36,13 +35,17 @@ jobs:
     executor: docker-executor
     steps:
       - checkout
+      - setup_remote_docker:
+          version: 20.10.14   # ✅ same fix here
       - run:
           name: Authenticate with Google Cloud
           command: |
             echo "$GCLOUD_SERVICE_KEY" | base64 --decode > gcp-key.json
             gcloud auth activate-service-account --key-file=gcp-key.json
+            gcloud auth configure-docker us-central1-docker.pkg.dev
+      
       - run:
-          name: Configure kubectl for GKE
+          name: Configure GKE
           command: |
             gcloud container clusters get-credentials $GKE_CLUSTER --region $GOOGLE_COMPUTE_REGION --project $GOOGLE_PROJECT_ID
       - run:
