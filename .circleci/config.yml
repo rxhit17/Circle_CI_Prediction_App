@@ -7,13 +7,28 @@ jobs:
       - checkout
 
       # Install Google Cloud SDK
-      - run:
-          name: Install Google Cloud SDK
+      - - run:
+          name: Fix Google apt lists & install Google Cloud SDK (keyring method)
           command: |
-            sudo apt-get update && sudo apt-get install -y curl apt-transport-https ca-certificates gnupg
-            echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list
-            curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
-            sudo apt-get update && sudo apt-get install -y google-cloud-sdk
+            set -euxo pipefail
+            # Clean up duplicates (safe if files don't exist)
+            sudo rm -f /etc/apt/sources.list.d/google-chrome.list || true
+            sudo rm -f /etc/apt/sources.list.d/google.list || true
+
+            # Keyring-based repo configuration
+            sudo install -m 0755 -d /usr/share/keyrings
+            curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg \
+              | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+            sudo chmod 644 /usr/share/keyrings/cloud.google.gpg
+
+            echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" \
+              | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list > /dev/null
+
+            # Update & install
+            sudo apt-get update
+            sudo apt-get install -y google-cloud-sdk
+            gcloud version
+
 
       # Authenticate with GCP
       - run:
