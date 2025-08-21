@@ -1,19 +1,20 @@
 version: 2.1
 
-executors:
-  gcp-docker-executor:
-    docker:
-      - image: google/cloud-sdk:slim
-    working_directory: ~/repo
-
 jobs:
   build_and_push:
-    executor: gcp-docker-executor
+    machine:  # ✅ Use full VM with Docker preinstalled
+      image: ubuntu-2204:current
     steps:
       - checkout
 
-      # Enable Docker-in-Docker
-      - setup_remote_docker
+      # Install gcloud SDK
+      - run:
+          name: Install Google Cloud SDK
+          command: |
+            sudo apt-get update && sudo apt-get install -y curl gnupg
+            echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] http://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+            curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+            sudo apt-get update && sudo apt-get install -y google-cloud-sdk
 
       # Authenticate with GCP
       - run:
@@ -24,7 +25,7 @@ jobs:
             gcloud config set project $GOOGLE_PROJECT_ID
             gcloud auth configure-docker us-central1-docker.pkg.dev -q
 
-      # Build and Push Docker Image
+      # Build and Push Docker image
       - run:
           name: Build & Push Docker Image
           command: |
