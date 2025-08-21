@@ -1,14 +1,9 @@
 version: 2.1
 
-executors:
-  docker-machine:
-    machine:
-      image: ubuntu-2004:202101-01  # machine executor with Docker support
-    working_directory: ~/repo
-
 jobs:
   build-and-push:
-    executor: docker-machine
+    machine:
+      image: ubuntu-2004:202101-01   # Full VM with Docker support
     steps:
       - checkout
 
