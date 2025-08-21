@@ -1,28 +1,15 @@
 version: 2.1
 
-executors:
-  docker-executor:
-    docker:
-      - image: google/cloud-sdk:latest
-    working_directory: ~/repo
+orbs:
+  gcp-cli: circleci/gcp-cli@3.1.0
 
 jobs:
   build_docker_image:
-    executor: docker-executor
+    machine:
+      image: ubuntu-2204:2022.10.2
     steps:
       - checkout
-      - setup_remote_docker:
-          version: 20.10.14
-          docker_layer_caching: true
-      - run:
-          name: Install Docker CLI
-          command: |
-            apt-get update
-            apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
-            curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add -
-            echo "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-            apt-get update
-            apt-get install -y docker-ce-cli
+      - gcp-cli/setup
       - run:
           name: Authenticate with Google Cloud
           command: |
@@ -37,13 +24,11 @@ jobs:
             docker push us-central1-docker.pkg.dev/$GOOGLE_PROJECT_ID/mlops/mlops:latest
 
   deploy_to_gke:
-    executor: docker-executor
+    machine:
+      image: ubuntu-2204:2022.10.2
     steps:
       - checkout
-      - run:
-          name: Install kubectl
-          command: |
-            gcloud components install kubectl
+      - gcp-cli/setup
       - run:
           name: Authenticate with Google Cloud
           command: |
