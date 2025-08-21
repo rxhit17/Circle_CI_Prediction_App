@@ -3,7 +3,7 @@ version: 2.1
 executors:
   docker-executor:
     docker:
-      - image: cimg/base:stable   # Use CircleCI's maintained base image (lighter & supports remote_docker)
+      - image: cimg/base:stable   # ✅ Use CircleCI base image instead of google/cloud-sdk
     working_directory: ~/repo
 
 jobs:
@@ -16,17 +16,20 @@ jobs:
     executor: docker-executor
     steps:
       - checkout
-      - setup_remote_docker:
-          version: 20.10.14   # ✅ explicitly use a supported Docker version
+      - setup_remote_docker   # ✅ Provides correct Docker engine
+      - run:
+          name: Install gcloud CLI
+          command: |
+            curl -sSL https://sdk.cloud.google.com | bash > /dev/null
+            source "$HOME/google-cloud-sdk/path.bash.inc"
       - run:
           name: Authenticate with Google Cloud
           command: |
             echo "$GCLOUD_SERVICE_KEY" | base64 --decode > gcp-key.json
             gcloud auth activate-service-account --key-file=gcp-key.json
             gcloud auth configure-docker us-central1-docker.pkg.dev
-
       - run:
-          name: Build and Push Image
+          name: Build and Push Docker Image
           command: |
             docker build -t us-central1-docker.pkg.dev/$GOOGLE_PROJECT_ID/mlops-app/mlops-app:latest .
             docker push us-central1-docker.pkg.dev/$GOOGLE_PROJECT_ID/mlops-app/mlops-app:latest
@@ -35,15 +38,18 @@ jobs:
     executor: docker-executor
     steps:
       - checkout
-      - setup_remote_docker:
-          version: 20.10.14   # ✅ same fix here
+      - setup_remote_docker
+      - run:
+          name: Install gcloud CLI
+          command: |
+            curl -sSL https://sdk.cloud.google.com | bash > /dev/null
+            source "$HOME/google-cloud-sdk/path.bash.inc"
       - run:
           name: Authenticate with Google Cloud
           command: |
             echo "$GCLOUD_SERVICE_KEY" | base64 --decode > gcp-key.json
             gcloud auth activate-service-account --key-file=gcp-key.json
             gcloud auth configure-docker us-central1-docker.pkg.dev
-      
       - run:
           name: Configure GKE
           command: |
