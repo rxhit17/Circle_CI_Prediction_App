@@ -1,17 +1,40 @@
 version: 2.1
 
-orbs:
-  gcp-cli: circleci/gcp-cli@3.1.0
+executors:
+  docker-executor:
+    docker:
+      - image: google/cloud-sdk:latest
+    working_directory: ~/repo
 
 jobs:
-  build_docker_image:
-    machine:
-      image: ubuntu-2204:2022.10.2
+  checkout_code:
+    executor: docker-executor
     steps:
       - checkout
-      - gcp-cli/setup
+      - persist_to_workspace:
+          root: ~/repo
+          paths:
+            - .
+
+  build_docker_image:
+    executor: docker-executor
+    steps:
+      - attach_workspace:
+          at: ~/repo
+      - setup_remote_docker:
+          version: 20.10.14
+          docker_layer_caching: true
       - run:
-          name: Authenticate with Google Cloud
+          name: Install Docker CLI
+          command: |
+            apt-get update
+            apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
+            curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+            echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+            apt-get update
+            apt-get install -y docker-ce-cli
+      - run:
+          name: Authenticate with google cloud
           command: |
             echo "$GCLOUD_SERVICE_KEY" | base64 --decode > gcp-key.json
             gcloud auth activate-service-account --key-file=gcp-key.json
@@ -24,13 +47,16 @@ jobs:
             docker push us-central1-docker.pkg.dev/$GOOGLE_PROJECT_ID/mlops/mlops:latest
 
   deploy_to_gke:
-    machine:
-      image: ubuntu-2204:2022.10.2
+    executor: docker-executor
     steps:
-      - checkout
-      - gcp-cli/setup
+      - attach_workspace:
+          at: ~/repo
       - run:
-          name: Authenticate with Google Cloud
+          name: Install kubectl
+          command: |
+            gcloud components install kubectl
+      - run:
+          name: Authenticate with google cloud
           command: |
             echo "$GCLOUD_SERVICE_KEY" | base64 --decode > gcp-key.json
             gcloud auth activate-service-account --key-file=gcp-key.json
@@ -45,9 +71,13 @@ jobs:
             kubectl apply -f kubernetes_deployment.yml
 
 workflows:
+  version: 2
   deploy_pipeline:
     jobs:
-      - build_docker_image
+      - checkout_code
+      - build_docker_image:
+          requires:
+            - checkout_code
       - deploy_to_gke:
           requires:
             - build_docker_image
