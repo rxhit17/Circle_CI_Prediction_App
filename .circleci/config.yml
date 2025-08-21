@@ -7,65 +7,62 @@ executors:
     working_directory: ~/repo
 
 jobs:
-  checkout_code:
-    executor: docker-executor
-    steps:
-      - checkout
-
   build_docker_image:
     executor: docker-executor
     steps:
       - checkout
-      - setup_remote_docker
+      - setup_remote_docker:
+          version: 20.10.14
+          docker_layer_caching: true
       - run:
-          name: Authenticate with google cloud
+          name: Install Docker CLI
           command: |
-              echo "$GCLOUD_SERVICE_KEY" | base64 --decode > gcp-key.json
-              gcloud auth activate-service-account --key-file=gcp-key.json
-              gcloud auth configure-docker us-central1-docker.pkg.dev || gcloud auth configure-docker
-
+            apt-get update
+            apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
+            curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add -
+            echo "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+            apt-get update
+            apt-get install -y docker-ce-cli
+      - run:
+          name: Authenticate with Google Cloud
+          command: |
+            echo "$GCLOUD_SERVICE_KEY" | base64 --decode > gcp-key.json
+            gcloud auth activate-service-account --key-file=gcp-key.json
+            gcloud config set project $GOOGLE_PROJECT_ID
+            gcloud auth configure-docker us-central1-docker.pkg.dev
       - run:
           name: Build and Push Image
           command: |
-              docker build -t us-central1-docker.pkg.dev/$GOOGLE_PROJECT_ID/mlops/mlops:latest .
-              docker push us-central1-docker.pkg.dev/$GOOGLE_PROJECT_ID/mlops/mlops:latest
+            docker build -t us-central1-docker.pkg.dev/$GOOGLE_PROJECT_ID/mlops/mlops:latest .
+            docker push us-central1-docker.pkg.dev/$GOOGLE_PROJECT_ID/mlops/mlops:latest
 
   deploy_to_gke:
     executor: docker-executor
     steps:
       - checkout
-      - setup_remote_docker
       - run:
-          name: Authenticate with google cloud
+          name: Install kubectl
           command: |
-              echo "$GCLOUD_SERVICE_KEY" | base64 --decode > gcp-key.json
-              gcloud auth activate-service-account --key-file=gcp-key.json
-              gcloud auth configure-docker us-central1-docker.pkg.dev || gcloud auth configure-docker
-      
+            gcloud components install kubectl
+      - run:
+          name: Authenticate with Google Cloud
+          command: |
+            echo "$GCLOUD_SERVICE_KEY" | base64 --decode > gcp-key.json
+            gcloud auth activate-service-account --key-file=gcp-key.json
+            gcloud config set project $GOOGLE_PROJECT_ID
       - run:
           name: Configure GKE
           command: |
-              gcloud container clusters get-credentials $GKE_CLUSTER --region $GOOGLE_COMPUTE_REGION --project $GOOGLE_PROJECT_ID
+            gcloud container clusters get-credentials $GKE_CLUSTER --region $GOOGLE_COMPUTE_REGION --project $GOOGLE_PROJECT_ID
       - run:
           name: Deploy to GKE
           command: |
-              kubectl apply -f kubernetes-deployment.yaml
+            kubectl apply -f kubernetes_deployment.yml
 
 workflows:
-  version: 2
   deploy_pipeline:
     jobs:
-      - checkout_code
-      - build_docker_image:
-          requires:
-            - checkout_code
+      - build_docker_image
       - deploy_to_gke:
           requires:
             - build_docker_image
-
-    
-
-
-
-
-
