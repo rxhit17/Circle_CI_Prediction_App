@@ -1,58 +1,45 @@
+# Use the latest 2.1 version of CircleCI pipeline process engine.
+# See: https://circleci.com/docs/reference/configuration-reference
+
+# For a detailed guide to building and testing with Python, read the docs:
+# https://circleci.com/docs/language-python/ for more details
 version: 2.1
 
+# Orbs are reusable packages of CircleCI configuration that you may share across projects, enabling you to create encapsulated, parameterized commands, jobs, and executors that can be used across multiple projects.
+# See: https://circleci.com/docs/orbs/use/orb-intro/
+orbs:
+  # See the Python orb documentation here: https://circleci.com/developer/orbs/orb/circleci/python
+  python: circleci/python@2.1.1
+
+# Define a job to be invoked later in a workflow.
+# See: https://circleci.com/docs/guides/orchestrate/jobs-steps/#jobs-overview & https://circleci.com/docs/reference/configuration-reference/#jobs
 jobs:
-  build-and-push:
-    machine: true   # Use the default Linux VM with Docker installed
+  build-and-test:
+    # Specify the execution environment. You can specify an image from Docker Hub or use one of our convenience images from CircleCI's Developer Hub.
+    # See: https://circleci.com/docs/guides/execution-managed/executor-intro/ & https://circleci.com/docs/reference/configuration-reference/#executor-job
+    docker:
+      # Specify the version you desire here
+      # See:https://circleci.com/developer/images/image/cimg/python
+      - image: cimg/python:3.12
+
+    # Add steps to the job
+    # See: https://circleci.com/docs/guides/orchestrate/jobs-steps/#steps-overview & https://circleci.com/docs/reference/configuration-reference/#steps
     steps:
+      # Checkout the code as the first step.
       - checkout
-
-      # Install Google Cloud SDK
-      - - run:
-          name: Fix Google apt lists & install Google Cloud SDK (keyring method)
-          command: |
-            set -euxo pipefail
-            # Clean up duplicates (safe if files don't exist)
-            sudo rm -f /etc/apt/sources.list.d/google-chrome.list || true
-            sudo rm -f /etc/apt/sources.list.d/google.list || true
-
-            # Keyring-based repo configuration
-            sudo install -m 0755 -d /usr/share/keyrings
-            curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg \
-              | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
-            sudo chmod 644 /usr/share/keyrings/cloud.google.gpg
-
-            echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" \
-              | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list > /dev/null
-
-            # Update & install
-            sudo apt-get update
-            sudo apt-get install -y google-cloud-sdk
-            gcloud version
-
-
-      # Authenticate with GCP
+      - python/install-packages:
+          pkg-manager: pip
+          # app-dir: ~/project/package-directory/  # If your requirements.txt isn't in the root directory.
+          # pip-dependency-file: test-requirements.txt  # if you have a different name for your requirements file, maybe one that combines your runtime and test requirements.
       - run:
-          name: Authenticate with GCP
-          command: |
-            echo $GCLOUD_SERVICE_KEY | base64 --decode > ${HOME}/gcloud-key.json
-            gcloud auth activate-service-account --key-file=${HOME}/gcloud-key.json
-            gcloud config set project $GOOGLE_PROJECT_ID
-            gcloud auth configure-docker $GCP_REGION-docker.pkg.dev --quiet
+          name: Run tests
+          # This assumes pytest is installed via the install-package step above
+          command: pytest
 
-      # Build Docker image
-      - run:
-          name: Build Docker Image
-          command: |
-            docker build -t $GCP_REGION-docker.pkg.dev/$GOOGLE_PROJECT_ID/$GCP_REPO/$IMAGE_NAME:$CIRCLE_SHA1 .
-
-      # Push Docker image
-      - run:
-          name: Push Docker Image
-          command: |
-            docker push $GCP_REGION-docker.pkg.dev/$GOOGLE_PROJECT_ID/$GCP_REPO/$IMAGE_NAME:$CIRCLE_SHA1
-
+# Orchestrate jobs using workflows
+# See: https://circleci.com/docs/guides/orchestrate/workflows/ & https://circleci.com/docs/reference/configuration-reference/#workflows
 workflows:
-  version: 2
-  build-deploy:
+  sample: # This is the name of the workflow, feel free to change it to better match your workflow.
+    # Inside the workflow, you define the jobs you want to run.
     jobs:
-      - build-and-push
+      - build-and-test
